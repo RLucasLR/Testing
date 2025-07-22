@@ -84,13 +84,13 @@ const useFirebase = () => {
 // Custom Modal Component
 const Modal = ({ children, title, onClose }) => {
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 scale-100 opacity-100">
         <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+          <h2 className="text-2xl font-semibold text-gray-800">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+            className="text-gray-500 hover:text-gray-700 text-3xl font-bold transition-colors duration-200"
           >
             &times;
           </button>
@@ -113,8 +113,47 @@ const OfficerDashboard = () => {
   const [reason, setReason] = useState('');
   const [evidenceUrls, setEvidenceUrls] = useState(''); // Comma-separated URLs
   const [courtDatesAvailability, setCourtDatesAvailability] = useState(''); // Comma-separated dates
+  const [contextOfIncident, setContextOfIncident] = useState(''); // New state for context
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+
+  // State for charge search and suggestions
+  const [chargeSearchTerm, setChargeSearchTerm] = useState('');
+  const [suggestedCharges, setSuggestedCharges] = useState([]);
+
+  // Simulated database of charges (from Google Sheet data)
+  const chargesDatabase = [
+    "Murder - 1.2-01 [CLASS 2 FELONY]",
+    "Involuntary Manslaughter - 1.2-02 (CLASS 5 FELON)",
+    "Voluntary Manslaughter - 1.2-03 (CLASS 4 FELONY)",
+    "Accessory to murder/homicide - 1.2-04 (CLASS 4 FELONY)",
+    "Racketeer Influenced and Corrupt Organizations - 1.2-05 (CLASS 1 FELONY)",
+    "Reckless Endangerment by Mob - 1.2-06 (CLASS 3 FELONY)",
+    "Assault or Battery by Mob - 1.2-07 (CLASS 1 FELONY)",
+    "Criminal Street Gang Participation - 1.2-08 (CLASS 5 FELONY)",
+    "Recruitment of Persons for Criminal Street Gangs - 1.2-09 (CLASS 3 MISDEMEANDOR)"
+  ];
+
+  // Effect to filter charges based on search term
+  useEffect(() => {
+    if (chargeSearchTerm.trim() === '') {
+      setSuggestedCharges([]);
+      return;
+    }
+    const filtered = chargesDatabase.filter(charge =>
+      charge.toLowerCase().includes(chargeSearchTerm.toLowerCase())
+    ).slice(0, 10); // Limit to 10 suggestions
+    setSuggestedCharges(filtered);
+  }, [chargeSearchTerm]);
+
+  const handleChargeSelect = (selectedCharge) => {
+    // Append the selected charge to the existing reason, separated by a comma
+    setReason(prevReason =>
+      prevReason ? `${prevReason}, ${selectedCharge}` : selectedCharge
+    );
+    setChargeSearchTerm(''); // Clear search term after selection
+    setSuggestedCharges([]); // Clear suggestions
+  };
 
   const handleSubmitArrest = async (e) => {
     e.preventDefault();
@@ -134,9 +173,10 @@ const OfficerDashboard = () => {
       const arrestData = {
         officerId: userId,
         arrestedUser,
-        reason,
+        reason, // Reason now contains comma-separated charges
         evidenceUrls: evidenceUrls.split(',').map(url => url.trim()).filter(url => url !== ''),
         courtDatesAvailability: courtDatesAvailability.split(',').map(date => date.trim()).filter(date => date !== ''),
+        contextOfIncident: contextOfIncident, // Include the new context field
         status: 'Pending Review',
         submissionDate: serverTimestamp(),
         courtStaffNotes: '',
@@ -208,6 +248,7 @@ const OfficerDashboard = () => {
       setReason('');
       setEvidenceUrls('');
       setCourtDatesAvailability('');
+      setContextOfIncident(''); // Clear the new context field
     } catch (error) {
       console.error("Error submitting arrest:", error);
       setMessage(`Error submitting arrest: ${error.message}`);
@@ -224,77 +265,104 @@ const OfficerDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 flex flex-col items-center">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-3xl">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">Officer Dashboard</h1>
-        <p className="text-sm text-gray-600 mb-4 text-center">
-          Logged in as Officer ID: <span className="font-mono bg-gray-200 px-2 py-1 rounded text-sm">{userId}</span>
+    <div className="min-h-screen bg-gray-50 p-6 flex flex-col items-center">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-3xl border border-gray-200">
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-6 text-center">Officer Dashboard</h1>
+        <p className="text-md text-gray-600 mb-6 text-center">
+          Logged in as Officer ID: <span className="font-mono bg-blue-50 text-blue-800 px-2 py-1 rounded-md text-sm font-semibold">{userId}</span>
         </p>
 
         {message && (
-          <div className={`p-3 mb-4 rounded-md ${messageType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          <div className={`p-4 mb-6 rounded-lg ${messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'} shadow-sm`}>
             {message}
           </div>
         )}
 
         <form onSubmit={handleSubmitArrest} className="space-y-6">
           <div>
-            <label htmlFor="arrestedUser" className="block text-sm font-medium text-gray-700 mb-1">Arrested User</label>
+            <label htmlFor="arrestedUser" className="block text-sm font-medium text-gray-700 mb-2">Arrested User <span className="text-red-500">*</span></label>
             <input
               type="text"
               id="arrestedUser"
               value={arrestedUser}
               onChange={(e) => setArrestedUser(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
               placeholder="e.g., John Doe"
               required
             />
           </div>
 
-          <div>
-            <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">Reason for Arrest</label>
+          {/* Reason for Arrest with Search and Suggestions */}
+          <div className="relative"> {/* Added relative for absolute positioning of suggestions */}
+            <label htmlFor="chargeSearch" className="block text-sm font-medium text-gray-700 mb-2">Search & Add Charges <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              id="chargeSearch"
+              value={chargeSearchTerm}
+              onChange={(e) => setChargeSearchTerm(e.target.value)}
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+              placeholder="Search for a charge (e.g., Theft, Assault)"
+            />
+            {suggestedCharges.length > 0 && (
+              <ul className="absolute z-10 bg-white border border-gray-300 rounded-lg shadow-lg w-full mt-1 max-h-60 overflow-y-auto">
+                {suggestedCharges.map((charge, index) => (
+                  <li
+                    key={index}
+                    onClick={() => handleChargeSelect(charge)}
+                    className="px-4 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors duration-150 text-gray-800"
+                  >
+                    {charge}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mt-4 mb-2">Reason for Arrest (Selected Charges/Manual Entry)</label>
             <textarea
               id="reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows="3"
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="e.g., Grand Theft Auto, possession of illegal substances"
+              rows="4"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+              placeholder="Selected charges will appear here. You can also type manually."
               required
             ></textarea>
           </div>
 
+          {/* New section for Context of Incident */}
           <div>
-            <label htmlFor="evidenceUrls" className="block text-sm font-medium text-gray-700 mb-1">Evidence (URLs/Descriptions - comma separated)</label>
+            <label htmlFor="contextOfIncident" className="block text-sm font-medium text-gray-700 mb-2">Context of Incident</label>
             <textarea
-              id="evidenceUrls"
-              value={evidenceUrls}
-              onChange={(e) => setEvidenceUrls(e.target.value)}
-              rows="2"
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="e.g., https://example.com/screenshot1.png, video of incident, document scan"
+              id="contextOfIncident"
+              value={contextOfIncident}
+              onChange={(e) => setContextOfIncident(e.target.value)}
+              rows="6"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+              placeholder="Provide a detailed narrative of the incident, including time, location, involved parties, and sequence of events."
             ></textarea>
-            <p className="mt-1 text-xs text-gray-500">
-              (Note: Actual file uploads are not supported in this demo. Please provide URLs or descriptive text.)
+            <p className="mt-2 text-xs text-gray-500">
+              (Optional) Describe the circumstances surrounding the arrest.
             </p>
           </div>
 
           <div>
-            <label htmlFor="courtDatesAvailability" className="block text-sm font-medium text-gray-700 mb-1">Court Dates Availability (comma separated)</label>
+            <label htmlFor="courtDatesAvailability" className="block text-sm font-medium text-gray-700 mb-2">Court Dates Availability (Select Date(s))</label>
             <input
-              type="text"
+              type="date" // Changed to type="date"
               id="courtDatesAvailability"
               value={courtDatesAvailability}
               onChange={(e) => setCourtDatesAvailability(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="e.g., 2025-08-10, 2025-08-15 (afternoons)"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+              // Removed placeholder as type="date" has its own default
             />
+            <p className="mt-2 text-xs text-gray-500">
+              Select one or more dates. For multiple dates, select one, then manually add others separated by commas in the field.
+            </p>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-4">
             <button
               type="submit"
-              className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105"
             >
               Submit Arrest
             </button>
@@ -310,9 +378,12 @@ const CourtStaffDashboard = () => {
   const { db, userId, isAuthReady } = useFirebase();
   const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-  const [arrests, setArrests] = useState([]);
-  const [selectedCase, setSelectedCase] = useState(null);
+  const [allArrests, setAllArrests] = useState([]); // Stores all arrests fetched from Firestore
+  const [displayedArrests, setDisplayedArrests] = useState([]); // Stores arrests currently displayed (filtered/searched)
   const [filterStatus, setFilterStatus] = useState('All'); // 'All', 'Pending Review', 'Accepted', 'Denied'
+  const [searchId, setSearchId] = useState(''); // State for the search input (Case ID)
+  const [searchName, setSearchName] = useState(''); // State for the search input (Arrested User Name)
+  const [selectedCase, setSelectedCase] = useState(null);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
 
@@ -321,16 +392,14 @@ const CourtStaffDashboard = () => {
 
     // Listen for real-time updates to the arrests collection
     const arrestsCollectionRef = collection(db, `artifacts/${appId}/public/data/arrests`);
-    const q = filterStatus === 'All' ? arrestsCollectionRef : query(arrestsCollectionRef, where('status', '==', filterStatus));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const updatedArrests = snapshot.docs.map(doc => ({
+    const unsubscribe = onSnapshot(arrestsCollectionRef, (snapshot) => {
+      const fetchedArrests = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       // Sort by submission date, newest first
-      updatedArrests.sort((a, b) => (b.submissionDate?.toDate() || 0) - (a.submissionDate?.toDate() || 0));
-      setArrests(updatedArrests);
+      fetchedArrests.sort((a, b) => (b.submissionDate?.toDate() || 0) - (a.submissionDate?.toDate() || 0));
+      setAllArrests(fetchedArrests);
     }, (error) => {
       console.error("Error fetching arrests:", error);
       setMessage(`Error loading cases: ${error.message}`);
@@ -338,7 +407,31 @@ const CourtStaffDashboard = () => {
     });
 
     return () => unsubscribe(); // Cleanup listener on unmount
-  }, [db, isAuthReady, appId, filterStatus]);
+  }, [db, isAuthReady, appId]);
+
+  // Effect to apply filter and search whenever allArrests, filterStatus, searchId, or searchName changes
+  useEffect(() => {
+    let filtered = allArrests;
+
+    const trimmedSearchId = searchId.trim().toLowerCase();
+    const trimmedSearchName = searchName.trim().toLowerCase();
+
+    if (trimmedSearchId !== '') {
+      // Prioritize search by Case ID if provided
+      filtered = filtered.filter(arrest => arrest.id.toLowerCase().includes(trimmedSearchId));
+    } else if (trimmedSearchName !== '') {
+      // Search by Arrested User Name if Case ID is empty and name is provided
+      filtered = filtered.filter(arrest => arrest.arrestedUser.toLowerCase().includes(trimmedSearchName));
+    }
+
+    // Apply status filter after ID/Name search
+    if (filterStatus !== 'All') {
+      filtered = filtered.filter(arrest => arrest.status === filterStatus);
+    }
+
+    setDisplayedArrests(filtered);
+  }, [allArrests, filterStatus, searchId, searchName]);
+
 
   const handleReviewCase = (caseData) => {
     setSelectedCase(caseData);
@@ -381,60 +474,102 @@ const CourtStaffDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 flex flex-col items-center">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-5xl">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">Court Staff Dashboard</h1>
-        <p className="text-sm text-gray-600 mb-4 text-center">
-          Logged in as Court Staff ID: <span className="font-mono bg-gray-200 px-2 py-1 rounded text-sm">{userId}</span>
+    <div className="min-h-screen bg-gray-50 p-6 flex flex-col items-center">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-5xl border border-gray-200">
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-6 text-center">Court Staff Dashboard</h1>
+        <p className="text-md text-gray-600 mb-6 text-center">
+          Logged in as Court Staff ID: <span className="font-mono bg-blue-50 text-blue-800 px-2 py-1 rounded-md text-sm font-semibold">{userId}</span>
         </p>
 
         {message && (
-          <div className={`p-3 mb-4 rounded-md ${messageType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          <div className={`p-4 mb-6 rounded-lg ${messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'} shadow-sm`}>
             {message}
           </div>
         )}
 
-        <div className="mb-6 flex justify-end items-center">
-          <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 mr-2">Filter by Status:</label>
-          <select
-            id="statusFilter"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          >
-            <option value="All">All</option>
-            <option value="Pending Review">Pending Review</option>
-            <option value="Accepted">Accepted</option>
-            <option value="Denied">Denied</option>
-          </select>
+        {/* Search and Filter Controls */}
+        <div className="mb-8 flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0 lg:space-x-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+          {/* Search by Case ID */}
+          <div className="flex items-center w-full lg:w-1/3">
+            <label htmlFor="searchId" className="text-sm font-medium text-gray-700 mr-3 whitespace-nowrap">Case ID:</label>
+            <input
+              type="text"
+              id="searchId"
+              value={searchId}
+              onChange={(e) => { setSearchId(e.target.value); setSearchName(''); }} // Clear name search when ID is typed
+              placeholder="Enter Case ID"
+              className="flex-grow px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+            />
+            <button
+              onClick={() => setSearchId('')} // Clear search
+              className="ml-3 px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Search by Arrested User Name */}
+          <div className="flex items-center w-full lg:w-1/3">
+            <label htmlFor="searchName" className="text-sm font-medium text-gray-700 mr-3 whitespace-nowrap">Name:</label>
+            <input
+              type="text"
+              id="searchName"
+              value={searchName}
+              onChange={(e) => { setSearchName(e.target.value); setSearchId(''); }} // Clear ID search when name is typed
+              placeholder="Enter Arrested User Name"
+              className="flex-grow px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+            />
+            <button
+              onClick={() => setSearchName('')} // Clear search
+              className="ml-3 px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Filter by Status */}
+          <div className="flex items-center w-full lg:w-1/4 justify-end">
+            <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700 mr-3 whitespace-nowrap">Status:</label>
+            <select
+              id="statusFilter"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="flex-grow px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
+            >
+              <option value="All">All</option>
+              <option value="Pending Review">Pending Review</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Denied">Denied</option>
+            </select>
+          </div>
         </div>
 
-        {arrests.length === 0 ? (
-          <p className="text-center text-gray-600 text-lg">No arrest cases to display.</p>
+        {displayedArrests.length === 0 ? (
+          <p className="text-center text-gray-600 text-lg py-8">No arrest cases to display based on current filters/search.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg shadow">
+          <div className="overflow-x-auto rounded-xl shadow-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-blue-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Case ID</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Arrested User</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Officer ID</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submission Date</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">Case ID</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">Arrested User</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">Reason</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">Officer ID</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">Submission Date</th>
                   <th scope="col" className="relative px-6 py-3">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {arrests.map((arrest) => (
-                  <tr key={arrest.id}>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {displayedArrests.map((arrest, index) => (
+                  <tr key={arrest.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{arrest.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{arrest.arrestedUser}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{arrest.reason}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         arrest.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
                         arrest.status === 'Accepted' ? 'bg-green-100 text-green-800' :
                         'bg-red-100 text-red-800'
@@ -449,7 +584,7 @@ const CourtStaffDashboard = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleReviewCase(arrest)}
-                        className="text-blue-600 hover:text-blue-900 px-3 py-1 rounded-md border border-blue-600 hover:border-blue-900"
+                        className="text-blue-600 hover:text-blue-800 px-4 py-2 rounded-lg border border-blue-600 hover:border-blue-800 transition-colors duration-200 shadow-sm hover:shadow-md"
                       >
                         Review
                       </button>
@@ -500,6 +635,7 @@ const CaseDetailModal = ({ caseData, onClose, onUpdateStatus }) => {
     Court Dates Availability: ${caseData.courtDatesAvailability && caseData.courtDatesAvailability.length > 0 ? caseData.courtDatesAvailability.join(', ') : 'None provided.'}
     Officer ID: ${caseData.officerId}
     Submission Date: ${caseData.submissionDate ? new Date(caseData.submissionDate.toDate()).toLocaleString() : 'N/A'}
+    Context of Incident: ${caseData.contextOfIncident || 'None provided.'}
     `;
 
     let chatHistory = [];
@@ -535,28 +671,28 @@ const CaseDetailModal = ({ caseData, onClose, onUpdateStatus }) => {
   return (
     <Modal title={`Case Details: ${caseData.arrestedUser}`} onClose={onClose}>
       <div className="space-y-4 text-gray-700">
-        <p><strong>Case ID:</strong> {caseData.id}</p>
-        <p><strong>Officer ID:</strong> {caseData.officerId}</p>
-        <p><strong>Arrested User:</strong> {caseData.arrestedUser}</p>
-        <p><strong>Reason for Arrest:</strong> {caseData.reason}</p>
-        <p><strong>Status:</strong> <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        <p className="text-base"><strong>Case ID:</strong> <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-sm">{caseData.id}</span></p>
+        <p className="text-base"><strong>Officer ID:</strong> <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-sm">{caseData.officerId}</span></p>
+        <p className="text-base"><strong>Arrested User:</strong> <span className="font-semibold">{caseData.arrestedUser}</span></p>
+        <p className="text-base"><strong>Reason for Arrest:</strong> <span className="italic">{caseData.reason}</span></p>
+        <p className="text-base"><strong>Status:</strong> <span className={`px-2 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
             caseData.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
             caseData.status === 'Accepted' ? 'bg-green-100 text-green-800' :
             'bg-red-100 text-red-800'
           }`}>{caseData.status}</span></p>
-        <p><strong>Submission Date:</strong> {caseData.submissionDate ? new Date(caseData.submissionDate.toDate()).toLocaleString() : 'N/A'}</p>
+        <p className="text-base"><strong>Submission Date:</strong> {caseData.submissionDate ? new Date(caseData.submissionDate.toDate()).toLocaleString() : 'N/A'}</p>
 
         {caseData.reviewDate && (
-          <p><strong>Review Date:</strong> {new Date(caseData.reviewDate.toDate()).toLocaleString()}</p>
+          <p className="text-base"><strong>Review Date:</strong> {new Date(caseData.reviewDate.toDate()).toLocaleString()}</p>
         )}
         {caseData.reviewerId && (
-          <p><strong>Reviewed By:</strong> {caseData.reviewerId}</p>
+          <p className="text-base"><strong>Reviewed By:</strong> {caseData.reviewerId}</p>
         )}
 
-        <div>
-          <h3 className="font-semibold mt-4 mb-2">Evidence:</h3>
+        <div className="pt-4 border-t border-gray-200 mt-4">
+          <h3 className="font-semibold text-lg mb-2 text-gray-800">Evidence:</h3>
           {caseData.evidenceUrls && caseData.evidenceUrls.length > 0 ? (
-            <ul className="list-disc list-inside ml-4">
+            <ul className="list-disc list-inside ml-4 text-base space-y-1">
               {caseData.evidenceUrls.map((url, index) => (
                 <li key={index}>{url}</li>
               ))}
@@ -566,10 +702,10 @@ const CaseDetailModal = ({ caseData, onClose, onUpdateStatus }) => {
           )}
         </div>
 
-        <div>
-          <h3 className="font-semibold mt-4 mb-2">Officer's Court Availability:</h3>
+        <div className="pt-4 border-t border-gray-200 mt-4">
+          <h3 className="font-semibold text-lg mb-2 text-gray-800">Officer's Court Availability:</h3>
           {caseData.courtDatesAvailability && caseData.courtDatesAvailability.length > 0 ? (
-            <ul className="list-disc list-inside ml-4">
+            <ul className="list-disc list-inside ml-4 text-base space-y-1">
               {caseData.courtDatesAvailability.map((date, index) => (
                 <li key={index}>{date}</li>
               ))}
@@ -579,11 +715,21 @@ const CaseDetailModal = ({ caseData, onClose, onUpdateStatus }) => {
           )}
         </div>
 
-        <div className="mt-4 flex justify-center">
+        {/* Display Context of Incident in Court Staff View */}
+        <div className="pt-4 border-t border-gray-200 mt-4">
+          <h3 className="font-semibold text-lg mb-2 text-gray-800">Context of Incident:</h3>
+          {caseData.contextOfIncident ? (
+            <p className="whitespace-pre-wrap text-base">{caseData.contextOfIncident}</p>
+          ) : (
+            <p className="text-gray-500 italic">No additional context provided.</p>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-center">
           <button
             onClick={handleGenerateSummary}
             disabled={loadingSummary}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
           >
             {loadingSummary ? (
               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -597,41 +743,41 @@ const CaseDetailModal = ({ caseData, onClose, onUpdateStatus }) => {
         </div>
 
         {summary && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200">
-            <h3 className="font-semibold mb-2">AI Generated Summary:</h3>
-            <p className="whitespace-pre-wrap text-gray-800">{summary}</p>
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+            <h3 className="font-semibold text-lg mb-2 text-gray-800">AI Generated Summary:</h3>
+            <p className="whitespace-pre-wrap text-gray-800 text-base">{summary}</p>
           </div>
         )}
 
         {summaryError && (
-          <div className="mt-4 p-3 bg-red-100 rounded-md border border-red-200 text-red-700">
+          <div className="mt-6 p-4 bg-red-100 rounded-lg border border-red-200 text-red-700 shadow-sm">
             Error: {summaryError}
           </div>
         )}
 
-        <div className="mt-4">
-          <label htmlFor="courtStaffNotes" className="block text-sm font-medium text-gray-700 mb-1">Court Staff Notes</label>
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <label htmlFor="courtStaffNotes" className="block text-sm font-medium text-gray-700 mb-2">Court Staff Notes</label>
           <textarea
             id="courtStaffNotes"
             value={courtStaffNotes}
             onChange={(e) => setCourtStaffNotes(e.target.value)}
-            rows="4"
-            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            rows="5"
+            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base transition-all duration-200"
             placeholder="Add your notes here..."
           ></textarea>
         </div>
 
         {caseData.status === 'Pending Review' && (
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-4 mt-6">
             <button
               onClick={handleAccept}
-              className="inline-flex items-center px-5 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 transform hover:scale-105"
             >
               Accept Case
             </button>
             <button
               onClick={handleDeny}
-              className="inline-flex items-center px-5 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 transform hover:scale-105"
             >
               Deny Case
             </button>
@@ -649,40 +795,40 @@ const App = () => {
 
   return (
     <FirebaseProvider>
-      <div className="font-inter antialiased">
+      <div className="font-inter antialiased bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
         <style>
           {`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
           body { font-family: 'Inter', sans-serif; }
           `}
         </style>
         <script src="https://cdn.tailwindcss.com"></script>
 
-        <nav className="bg-gray-800 p-4 shadow-md">
-          <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
+        <nav className="bg-gray-800 p-4 shadow-xl">
+          <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center py-2">
             {/* Logo and Title */}
             <div className="flex items-center mb-4 sm:mb-0">
               <img
                 src="http://googleusercontent.com/file_content/1" // URL for the uploaded logo
                 alt="Dauphin County Justice Logo"
-                className="h-10 w-10 mr-3 rounded-full"
+                className="h-12 w-12 mr-4 rounded-full shadow-lg border-2 border-white"
               />
-              <div className="text-white text-xl sm:text-2xl font-bold text-center sm:text-left">Dauphin County Courthouse Case Management</div>
+              <div className="text-white text-xl sm:text-3xl font-extrabold text-center sm:text-left tracking-wide">Dauphin County Courthouse Case Management</div>
             </div>
-            <div className="flex space-x-2 sm:space-x-4">
+            <div className="flex space-x-3 sm:space-x-6">
               <button
                 onClick={() => setView('officer')}
-                className={`px-3 py-2 sm:px-4 sm:py-2 rounded-md font-medium text-sm sm:text-base transition-colors duration-200 ${
-                  view === 'officer' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`}
+                className={`px-5 py-2 sm:px-6 sm:py-2.5 rounded-lg font-semibold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-md
+                  ${view === 'officer' ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'text-gray-300 hover:bg-gray-700 hover:text-white bg-gray-700'}`
+                }
               >
                 Officer View
               </button>
               <button
                 onClick={() => setView('courtStaff')}
-                className={`px-3 py-2 sm:px-4 sm:py-2 rounded-md font-medium text-sm sm:text-base transition-colors duration-200 ${
-                  view === 'courtStaff' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`}
+                className={`px-5 py-2 sm:px-6 sm:py-2.5 rounded-lg font-semibold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-md
+                  ${view === 'courtStaff' ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'text-gray-300 hover:bg-gray-700 hover:text-white bg-gray-700'}`
+                }
               >
                 Court Staff View
               </button>
